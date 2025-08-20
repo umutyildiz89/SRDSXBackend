@@ -1,0 +1,59 @@
+-- USERS (ileride gerçek auth için)
+CREATE TABLE IF NOT EXISTS USERS (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  username VARCHAR(64) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('OPERASYON_MUDURU','GENEL_MUDUR') NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- SALESPERSONS
+CREATE TABLE IF NOT EXISTS SALESPERSONS (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(120) NOT NULL,
+  code VARCHAR(32) NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_by_user_id INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_sp_code (code)
+);
+
+-- CUSTOMERS
+CREATE TABLE IF NOT EXISTS CUSTOMERS (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  customer_code VARCHAR(6) NOT NULL,
+  name VARCHAR(160) NOT NULL,
+  phone VARCHAR(32) NULL,
+  email VARCHAR(160) NULL,
+  salesperson_id INT NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_customer_code (customer_code),
+  INDEX idx_customer_salesperson (salesperson_id),
+  CONSTRAINT fk_customer_salesperson
+    FOREIGN KEY (salesperson_id) REFERENCES SALESPERSONS(id)
+);
+
+-- TRANSACTIONS
+CREATE TABLE IF NOT EXISTS TRANSACTIONS (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  type ENUM('YATIRIM','CEKIM') NOT NULL,
+  original_amount DECIMAL(18,6) NOT NULL,
+  currency VARCHAR(8) NOT NULL,
+  manual_rate_to_usd DECIMAL(18,6) NULL,
+  amount_usd DECIMAL(18,6) NOT NULL,
+  salesperson_id INT NOT NULL,
+  customer_id INT NOT NULL,
+  note VARCHAR(500) NULL,
+  created_by_user_id INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_tx_salesperson (salesperson_id),
+  INDEX idx_tx_customer (customer_id),
+  INDEX idx_tx_created_at (created_at),
+  CONSTRAINT fk_tx_salesperson FOREIGN KEY (salesperson_id) REFERENCES SALESPERSONS(id),
+  CONSTRAINT fk_tx_customer FOREIGN KEY (customer_id) REFERENCES CUSTOMERS(id)
+);

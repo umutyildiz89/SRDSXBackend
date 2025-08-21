@@ -9,9 +9,21 @@ const router = express.Router();
 const { query, pool } = require("../db");
 const q = (sql, params = []) => query(sql, params);
 
-// Basit doğrulama yardımcıları
+// ------- Yardımcılar -------
 function isBlank(s) {
   return !s || String(s).trim() === "";
+}
+
+function logDbError(where, err) {
+  // PlanetScale şifre/bağlantı hatalarını net görmek için ayrıntılı log
+  console.error(`[${where}] DB ERROR ->`, {
+    code: err && err.code,
+    errno: err && err.errno,
+    sqlState: err && err.sqlState,
+    sqlMessage: err && err.sqlMessage,
+    message: err && err.message,
+    stack: err && err.stack,
+  });
 }
 
 // Satışçı var mı + aktif mi + code dolu mu?
@@ -30,6 +42,7 @@ async function ensureSalespersonOk(id) {
 }
 
 // ============ LISTE ============
+// GET /api/customers
 router.get("/", async (req, res) => {
   try {
     const rows = await q(
@@ -40,12 +53,17 @@ router.get("/", async (req, res) => {
     );
     res.json(rows);
   } catch (e) {
-    console.error("GET /customers error:", e);
-    res.status(500).json({ message: "Server error" });
+    logDbError("GET /api/customers", e);
+    const isDev = process.env.NODE_ENV !== "production";
+    res.status(500).json({
+      message: "Server error",
+      ...(isDev ? { detail: e.message, code: e.code } : {}),
+    });
   }
 });
 
 // ============ DETAY ============
+// GET /api/customers/:id
 router.get("/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -58,13 +76,18 @@ router.get("/:id", async (req, res) => {
     if (!row) return res.status(404).json({ message: "Not Found" });
     res.json(row);
   } catch (e) {
-    console.error("GET /customers/:id error:", e);
-    res.status(500).json({ message: "Server error" });
+    logDbError("GET /api/customers/:id", e);
+    const isDev = process.env.NODE_ENV !== "production";
+    res.status(500).json({
+      message: "Server error",
+      ...(isDev ? { detail: e.message, code: e.code } : {}),
+    });
   }
 });
 
 // ============ OLUŞTUR ============
-// NOT: customer_code NOT NULL olduğundan, önce 6 haneli GEÇİCİ bir kodla insert,
+// POST /api/customers
+// NOT: customer_code NOT NULL olduğundan, önce 6 haneli GEÇİCİ kodla insert,
 // sonra insertId -> finalCode (000001 biçimi) ile UPDATE yapıyoruz.
 router.post("/", async (req, res) => {
   let conn;
@@ -139,7 +162,9 @@ router.post("/", async (req, res) => {
 
     if (insertId === null) {
       await conn.rollback();
-      return res.status(409).json({ message: "Geçici customer_code üretilemedi." });
+      return res
+        .status(409)
+        .json({ message: "Geçici customer_code üretilemedi." });
     }
 
     const finalCode = String(insertId).padStart(6, "0");
@@ -160,18 +185,27 @@ router.post("/", async (req, res) => {
     );
     return res.status(201).json(rows[0]);
   } catch (e) {
-    try { if (conn) await conn.rollback(); } catch {}
-    console.error("POST /customers error:", e);
+    try {
+      if (conn) await conn.rollback();
+    } catch {}
+    logDbError("POST /api/customers", e);
     if (e && (e.code === "ER_DUP_ENTRY" || e.sqlState === "23000")) {
       return res.status(409).json({ message: "customer_code zaten mevcut" });
     }
-    return res.status(500).json({ message: "Server error" });
+    const isDev = process.env.NODE_ENV !== "production";
+    return res.status(500).json({
+      message: "Server error",
+      ...(isDev ? { detail: e.message, code: e.code } : {}),
+    });
   } finally {
-    try { if (conn) conn.release(); } catch {}
+    try {
+      if (conn) conn.release();
+    } catch {}
   }
 });
 
 // ============ GÜNCELLE ============
+// PUT /api/customers/:id
 router.put("/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -203,8 +237,12 @@ router.put("/:id", async (req, res) => {
     );
     res.json(out[0]);
   } catch (e) {
-    console.error("PUT /customers/:id error:", e);
-    res.status(500).json({ message: "Server error" });
+    logDbError("PUT /api/customers/:id", e);
+    const isDev = process.env.NODE_ENV !== "production";
+    res.status(500).json({
+      message: "Server error",
+      ...(isDev ? { detail: e.message, code: e.code } : {}),
+    });
   }
 });
 

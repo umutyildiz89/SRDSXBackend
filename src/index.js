@@ -67,13 +67,14 @@ app.use("/api/reports", requireAuth, reportsRoutes);
 app.use("/api/salespersons", requireAuth, salespersonsRoutes);
 app.use("/api/customers", requireAuth, customersRoutes);
 app.use("/api/transactions", requireAuth, transactionsRoutes);
-app.use(
-  '/api/gm',
-  requireAuth,
-  requireRole(['Genel Müdür', 'GENEL_MUDUR']),
-  require('./routes/gm')
-);
 
+// GM alanları
+app.use(
+  "/api/gm",
+  requireAuth,
+  requireRole(["Genel Müdür", "GENEL_MUDUR"]),
+  require("./routes/gm")
+);
 
 // Profil (me)
 app.get("/api/users/me", requireAuth, (req, res) => {
@@ -81,18 +82,19 @@ app.get("/api/users/me", requireAuth, (req, res) => {
   return res.json({ id, username, role });
 });
 
-// ========= RET MODÜLLERİ =========
-// Not: Hem TÜRKÇE hem SABİT(UPPERCASE) rol adlarını kabul edelim.
+/**
+ * ========= RET MODÜLLERİ =========
+ * DİKKAT:
+ *  - /api/ret-members mount seviyesinde SADECE requireAuth var.
+ *    Yetki kontrolünü retMembers router içinde yapıyoruz:
+ *      - GET (liste/tek kayıt):  OPERASYON_MUDURU + GENEL_MUDUR
+ *      - POST/PUT/DELETE:       sadece OPERASYON_MUDURU
+ */
 
-// RET Grubu (RET üyeleri) — Operasyon Müdürü
-app.use(
-  "/api/ret-members",
-  requireAuth,
-  requireRole(["Operasyon Müdürü", "OPERASYON_MUDURU"]),
-  retMembersRoutes
-);
+// ✅ Mount seviyesinde role KALDIRILDI → 403 sebebi buydu
+app.use("/api/ret-members", requireAuth, retMembersRoutes);
 
-// RET Atama — Genel Müdür
+// RET Atama — sadece Genel Müdür
 app.use(
   "/api/ret-assignments",
   requireAuth,
